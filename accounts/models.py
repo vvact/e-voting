@@ -73,7 +73,7 @@ class OTP(models.Model):
             self.code = str(random.randint(100000, 999999))
 
         if not self.expires_at:
-            self.expires_at = timezone.now() + timedelta(minutes=10)
+            self.expires_at = timezone.now() + timedelta(minutes=60)
 
         super().save(*args, **kwargs)
 

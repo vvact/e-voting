@@ -117,3 +117,57 @@ class ResendOTPView(APIView):
             )
 
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+
+from rest_framework.decorators import api_view
+from rest_framework.response import Response
+from django.contrib.auth import get_user_model
+from .models import OTP
+
+User = get_user_model()
+
+
+@api_view(['POST'])
+def request_password_reset(request):
+    email = request.data.get("email")
+
+    try:
+        user = User.objects.get(email=email)
+    except User.DoesNotExist:
+        return Response({"error": "User not found"}, status=404)
+
+    # create new OTP
+    otp = OTP.objects.create(user=user)
+
+    print(f"RESET OTP for {email} is {otp.code}")
+
+    return Response({"message": "OTP sent to email"})
+
+
+@api_view(['POST'])
+def confirm_password_reset(request):
+    email = request.data.get("email")
+    code = request.data.get("otp")
+    new_password = request.data.get("new_password")
+
+    try:
+        user = User.objects.get(email=email)
+    except User.DoesNotExist:
+        return Response({"error": "User not found"}, status=404)
+
+    try:
+        otp = OTP.objects.filter(user=user, code=code).latest('created_at')
+    except OTP.DoesNotExist:
+        return Response({"error": "Invalid OTP"}, status=400)
+
+    if otp.is_expired():
+        return Response({"error": "OTP expired"}, status=400)
+
+    # reset password
+    user.set_password(new_password)
+    user.save()
+
+    otp.delete()
+
+    return Response({"message": "Password reset successful"})
