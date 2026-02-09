@@ -6,6 +6,17 @@ from rest_framework import status
 from .models import Vote, Election
 from .serializers import VoteSerializer
 
+from rest_framework.views import APIView
+from rest_framework.response import Response
+from .models import Position, Vote
+
+
+from django.db.models import Count
+from rest_framework.views import APIView
+from rest_framework.response import Response
+from .models import Position
+
+
 
 class CastVoteView(APIView):
     permission_classes = [IsAuthenticated]
@@ -54,4 +65,43 @@ class CastVoteView(APIView):
             )
 
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-                                                                                                                                                                        
+    
+    
+
+
+
+from django.db.models import Count
+from rest_framework.views import APIView
+from rest_framework.response import Response
+from .models import Position
+
+
+class ElectionResultsView(APIView):
+
+    def get(self, request):
+        results = []
+
+        positions = Position.objects.prefetch_related('candidates')
+
+        for position in positions:
+            candidates = position.candidates.annotate(
+                total_votes=Count('vote')
+            )
+
+            candidates_data = []
+
+            for candidate in candidates:
+                candidates_data.append({
+                    "candidate_id": candidate.id,
+                    "full_name": candidate.full_name,
+                    "party": candidate.party,
+                    "votes": candidate.total_votes
+                })
+
+            results.append({
+                "position": position.title,
+                "candidates": candidates_data
+            })
+
+        return Response(results)
+
