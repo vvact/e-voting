@@ -46,11 +46,18 @@ class Vote(models.Model):
         settings.AUTH_USER_MODEL,
         on_delete=models.CASCADE
     )
+    position = models.ForeignKey(
+        Position,
+        on_delete=models.CASCADE
+    )
     candidate = models.ForeignKey(
         Candidate,
         on_delete=models.CASCADE
     )
     voted_at = models.DateTimeField(default=timezone.now)
 
+    class Meta:
+        unique_together = ['voter', 'position']
+
     def __str__(self):
-        return f"{self.voter.email} voted for {self.candidate.full_name}"
+        return f"{self.voter.email} voted for {self.candidate.full_name} ({self.position.title})"

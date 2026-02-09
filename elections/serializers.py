@@ -13,9 +13,12 @@ class VoteSerializer(serializers.ModelSerializer):
         candidate_id = data.get("candidate_id")
 
         try:
-            candidate = Candidate.objects.get(id=candidate_id)
+            candidate = Candidate.objects.select_related("position").get(id=candidate_id)
         except Candidate.DoesNotExist:
             raise serializers.ValidationError("Candidate not found")
 
+        # attach candidate object
         data["candidate"] = candidate
+        data["position"] = candidate.position  # 🔥 IMPORTANT ADD
         return data
+
