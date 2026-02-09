@@ -76,17 +76,38 @@ from rest_framework.response import Response
 from .models import Position
 
 
+from django.db.models import Count
+from rest_framework.views import APIView
+from rest_framework.response import Response
+from .models import Position, Election
+
+
 class ElectionResultsView(APIView):
 
+    permission_classes = []  # PUBLIC ACCESS
+
     def get(self, request):
+
+        # 1️⃣ Get active election
+        election = Election.objects.filter(is_active=True).first()
+
+        if not election:
+            return Response({
+                "message": "No active election",
+                "results": []
+            })
+
         results = []
 
-        positions = Position.objects.prefetch_related('candidates')
+        # 2️⃣ Get positions for this election only
+        positions = election.positions.prefetch_related('candidates')
 
         for position in positions:
+
+            # 3️⃣ Count votes per candidate
             candidates = position.candidates.annotate(
                 total_votes=Count('vote')
-            )
+            ).order_by('-total_votes')
 
             candidates_data = []
 
@@ -103,5 +124,9 @@ class ElectionResultsView(APIView):
                 "candidates": candidates_data
             })
 
-        return Response(results)
+        return Response({
+            "election": election.name,
+            "results": results
+        })
+
 
