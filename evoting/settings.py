@@ -31,6 +31,7 @@ INSTALLED_APPS = [
     # Third-party
     'rest_framework',
     'drf_spectacular',
+    'grappelli',
     
     # Local apps
     "accounts",
