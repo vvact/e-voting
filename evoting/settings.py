@@ -21,6 +21,7 @@ ALLOWED_HOSTS = config('ALLOWED_HOSTS', default='127.0.0.1').split(',')
 # Application definition
 
 INSTALLED_APPS = [
+    # 'grappelli',
     "django.contrib.admin",
     "django.contrib.auth",
     "django.contrib.contenttypes",
@@ -31,7 +32,6 @@ INSTALLED_APPS = [
     # Third-party
     'rest_framework',
     'drf_spectacular',
-    'grappelli',
     
     # Local apps
     "accounts",
