@@ -143,6 +143,7 @@ SIMPLE_JWT = {
     'REFRESH_TOKEN_LIFETIME': timedelta(days=1),
 }
 
-"corsheaders.middleware.CorsMiddleware",
+CORS_ALLOW_ALL_ORIGINS = True
+
 
 
