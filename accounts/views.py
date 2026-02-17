@@ -13,14 +13,27 @@ import random
 class RegisterView(APIView):
     def post(self, request):
         serializer = RegisterSerializer(data=request.data)
+
         if serializer.is_valid():
             user = serializer.save()
+
             # Generate OTP
             code = str(random.randint(100000, 999999))
             OTP.objects.create(user=user, code=code)
+
+            # TEMP: print OTP in terminal
             print(f"OTP for {user.email} is {code}")
-            return Response({"message": "User registered successfully. Check email for OTP."}, status=status.HTTP_201_CREATED)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+            return Response(
+                {"message": "User registered successfully. Check email for OTP."},
+                status=status.HTTP_201_CREATED
+            )
+
+        # Return serializer errors in a structured way
+        return Response(
+            {"errors": serializer.errors},
+            status=status.HTTP_400_BAD_REQUEST
+        )
 
 
 # ---------------------------
