@@ -1,11 +1,15 @@
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
+from rest_framework.decorators import api_view
+from django.contrib.auth import authenticate
+from django.utils import timezone
+from rest_framework_simplejwt.tokens import RefreshToken
+import random
+
 from .serializers import RegisterSerializer, VerifyOTPSerializer, ResendOTPSerializer
 from .models import User, OTP
-from django.utils import timezone
-from django.contrib.auth import authenticate
-import random
+
 
 # ---------------------------
 # REGISTER
@@ -20,8 +24,6 @@ class RegisterView(APIView):
             # Generate OTP
             code = str(random.randint(100000, 999999))
             OTP.objects.create(user=user, code=code)
-
-            # TEMP: print OTP in terminal
             print(f"OTP for {user.email} is {code}")
 
             return Response(
@@ -29,11 +31,8 @@ class RegisterView(APIView):
                 status=status.HTTP_201_CREATED
             )
 
-        # Return serializer errors in a structured way
-        return Response(
-            {"errors": serializer.errors},
-            status=status.HTTP_400_BAD_REQUEST
-        )
+        # Return structured errors
+        return Response({"errors": serializer.errors}, status=status.HTTP_400_BAD_REQUEST)
 
 
 # ---------------------------
@@ -45,6 +44,7 @@ class VerifyOTPView(APIView):
         if serializer.is_valid():
             email = serializer.validated_data['email']
             code = serializer.validated_data['code']
+
             try:
                 user = User.objects.get(email=email)
                 otp = OTP.objects.filter(user=user, code=code).latest('created_at')
@@ -71,6 +71,7 @@ class ResendOTPView(APIView):
         serializer = ResendOTPSerializer(data=request.data)
         if serializer.is_valid():
             email = serializer.validated_data['email']
+
             try:
                 user = User.objects.get(email=email)
             except User.DoesNotExist:
@@ -113,7 +114,6 @@ class LoginView(APIView):
         if not user.is_verified:
             return Response({"detail": "Account not verified. Please check your email."}, status=status.HTTP_403_FORBIDDEN)
 
-        from rest_framework_simplejwt.tokens import RefreshToken
         refresh = RefreshToken.for_user(user)
 
         return Response({
@@ -128,19 +128,23 @@ class LoginView(APIView):
 # ---------------------------
 # PASSWORD RESET
 # ---------------------------
-from rest_framework.decorators import api_view
-
 @api_view(['POST'])
 def request_password_reset(request):
     email = request.data.get("email")
+    if not email:
+        return Response({"error": "Email is required"}, status=status.HTTP_400_BAD_REQUEST)
+
     try:
         user = User.objects.get(email=email)
     except User.DoesNotExist:
-        return Response({"error": "User not found"}, status=404)
+        return Response({"error": "User not found"}, status=status.HTTP_404_NOT_FOUND)
 
-    otp = OTP.objects.create(user=user)
-    print(f"RESET OTP for {email} is {otp.code}")
-    return Response({"message": "OTP sent to email"})
+    OTP.objects.filter(user=user).delete()
+    otp_code = str(random.randint(100000, 999999))
+    OTP.objects.create(user=user, code=otp_code)
+    print(f"RESET OTP for {email} is {otp_code}")
+
+    return Response({"message": "OTP sent to email"}, status=status.HTTP_200_OK)
 
 
 @api_view(['POST'])
@@ -149,20 +153,24 @@ def confirm_password_reset(request):
     code = request.data.get("otp")
     new_password = request.data.get("new_password")
 
+    if not email or not code or not new_password:
+        return Response({"error": "Email, OTP, and new password are required"}, status=status.HTTP_400_BAD_REQUEST)
+
     try:
         user = User.objects.get(email=email)
     except User.DoesNotExist:
-        return Response({"error": "User not found"}, status=404)
+        return Response({"error": "User not found"}, status=status.HTTP_404_NOT_FOUND)
 
     try:
         otp = OTP.objects.filter(user=user, code=code).latest('created_at')
     except OTP.DoesNotExist:
-        return Response({"error": "Invalid OTP"}, status=400)
+        return Response({"error": "Invalid OTP"}, status=status.HTTP_400_BAD_REQUEST)
 
     if otp.is_expired():
-        return Response({"error": "OTP expired"}, status=400)
+        return Response({"error": "OTP expired"}, status=status.HTTP_400_BAD_REQUEST)
 
     user.set_password(new_password)
     user.save()
     otp.delete()
-    return Response({"message": "Password reset successful"})
+
+    return Response({"message": "Password reset successful"}, status=status.HTTP_200_OK)
