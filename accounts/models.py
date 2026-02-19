@@ -1,5 +1,9 @@
 from django.db import models
-from django.contrib.auth.models import AbstractBaseUser, BaseUserManager, PermissionsMixin
+from django.contrib.auth.models import (
+    AbstractBaseUser,
+    BaseUserManager,
+    PermissionsMixin,
+)
 from django.utils import timezone
 from datetime import timedelta
 import random
@@ -55,8 +59,8 @@ class User(AbstractBaseUser, PermissionsMixin):
 
     objects = UserManager()
 
-    USERNAME_FIELD = 'email'
-    REQUIRED_FIELDS = ['national_id', 'full_name']
+    USERNAME_FIELD = "email"
+    REQUIRED_FIELDS = ["national_id", "full_name"]
 
     def __str__(self):
         return self.email

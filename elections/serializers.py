@@ -6,17 +6,29 @@ from .models import Vote, Candidate, Position, Election
 # Candidate Serializer
 # =========================
 class CandidateSerializer(serializers.ModelSerializer):
-    total_votes = serializers.IntegerField(source='vote_set.count', read_only=True)
+    total_votes = serializers.IntegerField(source="vote_set.count", read_only=True)
     photo_url = serializers.SerializerMethodField()
 
     class Meta:
         model = Candidate
-        fields = ['id', 'full_name', 'party', 'position', 'photo', 'photo_url', 'total_votes']
+        fields = [
+            "id",
+            "full_name",
+            "party",
+            "position",
+            "photo",
+            "photo_url",
+            "total_votes",
+        ]
 
     def get_photo_url(self, obj):
-        request = self.context.get('request')
-        if obj.photo and hasattr(obj.photo, 'url'):
-            return request.build_absolute_uri(obj.photo.url)
+        request = self.context.get("request")
+
+        if obj.photo and hasattr(obj.photo, "url"):
+            if request:
+                return request.build_absolute_uri(obj.photo.url)
+            return obj.photo.url
+
         return None
 
 
@@ -28,7 +40,7 @@ class PositionSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Position
-        fields = ['id', 'title', 'election', 'candidates']
+        fields = ["id", "title", "election", "candidates"]
 
 
 # =========================
@@ -39,7 +51,7 @@ class ElectionSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Election
-        fields = ['id', 'name', 'start_time', 'end_time', 'is_active', 'positions']
+        fields = ["id", "name", "start_time", "end_time", "is_active", "positions"]
 
 
 # =========================
@@ -50,17 +62,19 @@ class VoteSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Vote
-        fields = ['candidate_id']
+        fields = ["candidate_id"]
 
     def validate(self, data):
         candidate_id = data.get("candidate_id")
 
         try:
-            candidate = Candidate.objects.select_related("position").get(id=candidate_id)
+            candidate = Candidate.objects.select_related("position").get(
+                id=candidate_id
+            )
         except Candidate.DoesNotExist:
             raise serializers.ValidationError("Candidate not found")
 
-        # attach candidate object
+        # Attach candidate object
         data["candidate"] = candidate
         data["position"] = candidate.position  # 🔥 IMPORTANT
         return data
