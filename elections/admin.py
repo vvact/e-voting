@@ -1,9 +1,14 @@
 from django.contrib import admin
 from django.utils.html import format_html
 from django.db import models
-from .models import Election, Position, Candidate, Vote
+from .models import Election, Position, Candidate, Vote,PoliticalParty
 
 
+
+
+@admin.register(PoliticalParty)
+class PoliticalPartyAdmin(admin.ModelAdmin):
+    list_display = ("name", "abbreviation")
 # =========================
 # ELECTION ADMIN
 # =========================

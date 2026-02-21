@@ -25,16 +25,26 @@ class Position(models.Model):
         return f"{self.title} - {self.election.name}"
 
 
+class PoliticalParty(models.Model):
+    name = models.CharField(max_length=100, unique=True)
+    abbreviation = models.CharField(max_length=20, blank=True)
+    badge = models.ImageField(upload_to="party_badges/")
+
+    def __str__(self):
+        return self.name
+
 class Candidate(models.Model):
     position = models.ForeignKey(
         Position, on_delete=models.CASCADE, related_name="candidates"
     )
     full_name = models.CharField(max_length=255)
-    party = models.CharField(max_length=255, blank=True, null=True)
+    party = models.ForeignKey(PoliticalParty, on_delete=models.SET_NULL, null=True, blank=True)
     photo = models.ImageField(upload_to="candidates/", blank=True, null=True)
 
     def __str__(self):
         return f"{self.full_name} ({self.position.title})"
+    
+
 
 
 class Vote(models.Model):

@@ -54,6 +54,8 @@ class CastVoteView(APIView):
                     {"error": f"You already voted for {position.title}"},
                     status=status.HTTP_400_BAD_REQUEST,
                 )
+                
+            
 
             # 5️⃣ Save vote
             Vote.objects.create(voter=user, candidate=candidate, position=position)
@@ -70,39 +72,49 @@ class CastVoteView(APIView):
 # Election Results
 # =========================
 class ElectionResultsView(APIView):
-    permission_classes = [AllowAny]  # PUBLIC ACCESS
+    permission_classes = [AllowAny]
 
     def get(self, request):
-        # 1️⃣ Get active election
         election = Election.objects.filter(is_active=True).first()
         if not election:
             return Response({"message": "No active election", "results": []})
 
         results = []
 
-        # 2️⃣ Get positions for this election only
-        positions = election.positions.prefetch_related("candidates")
+        positions = election.positions.prefetch_related(
+            "candidates__party"
+        )
 
         for position in positions:
-            # 3️⃣ Count votes per candidate
             candidates = position.candidates.annotate(
                 total_votes=Count("vote")
             ).order_by("-total_votes")
 
-            candidates_data = [
-                {
+            candidates_data = []
+
+            for candidate in candidates:
+                candidates_data.append({
                     "candidate_id": candidate.id,
                     "full_name": candidate.full_name,
-                    "party": candidate.party,
+                    "party": {
+                        "id": candidate.party.id if candidate.party else None,
+                        "name": candidate.party.name if candidate.party else None,
+                        "badge_url": request.build_absolute_uri(candidate.party.badge.url)
+                        if candidate.party and candidate.party.badge
+                        else None,
+                    },
                     "votes": candidate.total_votes,
-                }
-                for candidate in candidates
-            ]
+                })
 
-            results.append({"position": position.title, "candidates": candidates_data})
+            results.append({
+                "position": position.title,
+                "candidates": candidates_data
+            })
 
-        return Response({"election": election.name, "results": results})
-
+        return Response({
+            "election": election.name,
+            "results": results
+        })
 
 # =========================
 # Election List
@@ -111,19 +123,29 @@ class ElectionListView(APIView):
     permission_classes = [AllowAny]
 
     def get(self, request):
-        elections = Election.objects.all().order_by("-start_time")
+        elections = Election.objects.prefetch_related(
+            "positions__candidates__party"
+        ).order_by("-start_time")
+
         serializer = ElectionSerializer(
             elections,
             many=True,
-            context={"request": request}  # 🔥 Needed for photo_url
+            context={"request": request}
         )
         return Response(serializer.data)
 
 
 class ElectionDetailView(generics.RetrieveAPIView):
-    queryset = Election.objects.all()
     serializer_class = ElectionSerializer
     permission_classes = [AllowAny]
+
+    def get_queryset(self):
+        return Election.objects.prefetch_related(
+            "positions__candidates__party"
+        )
+
+    def get_serializer_context(self):
+        return {"request": self.request}
 
 # =========================
 # Active Elections

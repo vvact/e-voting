@@ -1,6 +1,20 @@
 from rest_framework import serializers
-from .models import Vote, Candidate, Position, Election
+from .models import Vote, Candidate, Position, Election,PoliticalParty
 
+
+
+class PoliticalPartySerializer(serializers.ModelSerializer):
+    badge_url = serializers.SerializerMethodField()
+
+    class Meta:
+        model = PoliticalParty
+        fields = ["id", "name", "abbreviation", "badge", "badge_url"]
+
+    def get_badge_url(self, obj):
+        request = self.context.get("request")
+        if obj.badge and request:
+            return request.build_absolute_uri(obj.badge.url)
+        return None
 
 # =========================
 # Candidate Serializer
@@ -8,6 +22,7 @@ from .models import Vote, Candidate, Position, Election
 class CandidateSerializer(serializers.ModelSerializer):
     total_votes = serializers.IntegerField(source="vote_set.count", read_only=True)
     photo_url = serializers.SerializerMethodField()
+    party = PoliticalPartySerializer(read_only=True)
 
     class Meta:
         model = Candidate
