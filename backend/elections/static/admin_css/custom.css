@@ -1,0 +1,9 @@
+/* Increase font size for all rows */
+.model-candidate td {
+    font-size: 16px;
+}
+
+/* Optional: make highlighted votes bigger */
+.model-candidate td b {
+    font-size: 18px;
+}
