@@ -19,5 +19,5 @@ urlpatterns = [
     path("upcoming/", UpcomingElectionsView.as_view()),
     path("closed/", ClosedElectionsView.as_view()),
     path("stats/", ElectionStatsView.as_view()),
-    path("elections/<int:pk>/", ElectionDetailView.as_view()),
+    path("elections/<slug:slug>/", ElectionDetailView.as_view()),
 ]

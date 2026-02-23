@@ -15,59 +15,91 @@ from rest_framework.permissions import AllowAny
 from .models import Election
 from .serializers import ElectionSerializer
 
+from rest_framework.views import APIView
+from rest_framework.permissions import IsAuthenticated
+from rest_framework.response import Response
+from rest_framework import status
+from django.utils import timezone
+
+from .models import Vote, Election
+from .serializers import VoteSerializer
+
 User = get_user_model()
 
 
 # =========================
 # Cast Vote
 # =========================
+from rest_framework.views import APIView
+from rest_framework.response import Response
+from rest_framework import status
+from rest_framework.permissions import IsAuthenticated
+from django.db import transaction
+from .models import Vote, Candidate, Position, Election
+from .serializers import VoteSerializer
+
 class CastVoteView(APIView):
     permission_classes = [IsAuthenticated]
 
+    @transaction.atomic
     def post(self, request):
         user = request.user
 
-        # 1️⃣ Check if verified
+        # 1️⃣ Check if user is verified
         if not getattr(user, "is_verified", False):
             return Response(
                 {"error": "Account not verified"},
                 status=status.HTTP_403_FORBIDDEN
             )
 
-        # 2️⃣ Check active election
-        election = Election.objects.filter(is_active=True).first()
-        if not election:
+        # 2️⃣ Validate input
+        serializer = VoteSerializer(data=request.data, context={"request": request})
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+        candidate = serializer.validated_data["candidate"]
+        position = serializer.validated_data["position"]
+        election = serializer.validated_data["election"]
+
+        # 3️⃣ Prevent double voting per position
+        if Vote.objects.filter(voter=user, position=position).exists():
             return Response(
-                {"error": "No active election"},
+                {"error": f"You already voted for {position.title}"},
                 status=status.HTTP_400_BAD_REQUEST
             )
 
-        # 3️⃣ Validate input
-        serializer = VoteSerializer(data=request.data)
-        if serializer.is_valid():
-            candidate = serializer.validated_data["candidate"]
-            position = serializer.validated_data["position"]
+        # 4️⃣ Create the vote
+        vote = Vote.objects.create(
+            voter=user,
+            candidate=candidate,
+            position=position,
+            election=election,
+            ip_address=self.get_client_ip(request),
+            user_agent=request.META.get("HTTP_USER_AGENT", "")
+        )
 
-            # 4️⃣ Prevent double voting PER POSITION
-            if Vote.objects.filter(voter=user, position=position).exists():
-                return Response(
-                    {"error": f"You already voted for {position.title}"},
-                    status=status.HTTP_400_BAD_REQUEST,
-                )
-                
-            
+        # 5️⃣ Mark user as voted for this position (for frontend/admin)
+        # Option A: using a ManyToMany on Position
+        position.voters.add(user)
+        position.save()
 
-            # 5️⃣ Save vote
-            Vote.objects.create(voter=user, candidate=candidate, position=position)
+        # 6️⃣ Update candidate's vote count
+        candidate.total_votes = candidate.total_votes + 1
+        candidate.save()
 
-            return Response(
-                {"message": f"Vote cast successfully for {position.title}"},
-                status=status.HTTP_201_CREATED,
-            )
+        return Response(
+            {"message": f"Vote cast successfully for {position.title}"},
+            status=status.HTTP_201_CREATED
+        )
 
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
-
+    def get_client_ip(self, request):
+        """Optional helper to store voter IP"""
+        x_forwarded_for = request.META.get("HTTP_X_FORWARDED_FOR")
+        if x_forwarded_for:
+            ip = x_forwarded_for.split(",")[0]
+        else:
+            ip = request.META.get("REMOTE_ADDR")
+        return ip
 # =========================
 # Election Results
 # =========================
@@ -138,6 +170,7 @@ class ElectionListView(APIView):
 class ElectionDetailView(generics.RetrieveAPIView):
     serializer_class = ElectionSerializer
     permission_classes = [AllowAny]
+    lookup_field = "slug"
 
     def get_queryset(self):
         return Election.objects.prefetch_related(
