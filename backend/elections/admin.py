@@ -31,15 +31,28 @@ class ElectionAdmin(admin.ModelAdmin):
 # =========================
 # POSITION ADMIN
 # =========================
+from django.contrib import admin
+from django.core.cache import cache
+from .models import Position, Candidate
+
 @admin.register(Position)
 class PositionAdmin(admin.ModelAdmin):
-    list_display = (
-        "title",
-        "election",
-    )
-
+    list_display = ("title", "election", "total_votes")
     search_fields = ("title",)
     list_filter = ("election",)
+    exclude = ("voters",)  # hide the voters multi-select
+
+    def total_votes(self, obj):
+        """
+        Show total votes for this position by summing live votes for all its candidates from Redis.
+        """
+        total = 0
+        for candidate in obj.candidates.all():
+            redis_key = f"live_votes_{candidate.id}"
+            total += cache.get(redis_key, candidate.total_votes)
+        return total
+
+    total_votes.short_description = "Total Votes"
 
 
 # =========================

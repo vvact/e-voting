@@ -5,8 +5,6 @@ services:
     restart: always
     env_file:
       - .env
-    ports:
-      - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
 
@@ -17,12 +15,34 @@ services:
     restart: always
     env_file:
       - .env
-    ports:
-      - "8000:8000"
     depends_on:
       - db
+      - redis   # <- add Redis dependency
     volumes:
-      - ./backend:/app
+      - static_volume:/app/staticfiles
+      - media_volume:/app/media
+
+  nginx:
+    image: nginx:alpine
+    container_name: evoting-nginx
+    restart: always
+    ports:
+      - "80:80"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/conf.d/default.conf
+      - static_volume:/app/staticfiles
+      - media_volume:/app/media
+    depends_on:
+      - backend
+
+  redis:   # <- new Redis service
+    image: redis:7-alpine
+    container_name: evoting-redis
+    restart: always
+    ports:
+      - "6379:6379"
 
 volumes:
   postgres_data:
+  static_volume:
+  media_volume:

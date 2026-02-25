@@ -72,7 +72,7 @@ docker-compose build
 ### Step 2 — Start the services
 
 ```bash
-docker-compose up
+docker-compose up -d
 ```
 
 * Backend will run at [http://localhost:8000](http://localhost:8000)
