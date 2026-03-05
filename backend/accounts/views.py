@@ -11,34 +11,43 @@ import random
 from .serializers import RegisterSerializer, VerifyOTPSerializer, ResendOTPSerializer
 from .models import User, OTP
 
+from django.db import transaction
+
 
 # ---------------------------
 # REGISTER
 # ---------------------------
 class RegisterView(APIView):
-    permission_classes = [AllowAny]  # 🔑 Important: public access
-    
+    permission_classes = [AllowAny]  # Public access
+
+    @transaction.atomic
     def post(self, request):
         serializer = RegisterSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
 
-        if serializer.is_valid():
-            user = serializer.save()
+        # Create user
+        user = serializer.save()
 
-            # Generate OTP
-            code = str(random.randint(100000, 999999))
-            OTP.objects.create(user=user, code=code)
-            print(f"OTP for {user.email} is {code}")
+        # Delete any previous OTPs (important security step)
+        OTP.objects.filter(user=user).delete()
 
-            return Response(
-                {"message": "User registered successfully. Check email for OTP."},
-                status=status.HTTP_201_CREATED,
-            )
+        # Create OTP (hashed automatically in model)
+        otp = OTP.objects.create(user=user)
 
-        # Return structured errors
+        # ⚠️ Send otp._raw_code via email/SMS here
+        # Example:
+        # send_email(user.email, otp._raw_code)
+
+        # TEMP: For development only
+        print(f"OTP for {user.email} is {otp._raw_code}")
+
         return Response(
-            {"errors": serializer.errors}, status=status.HTTP_400_BAD_REQUEST
+            {
+                "message": "User registered successfully. OTP sent.",
+                "email": user.email,
+            },
+            status=status.HTTP_201_CREATED,
         )
-
 
 # ---------------------------
 # VERIFY OTP
